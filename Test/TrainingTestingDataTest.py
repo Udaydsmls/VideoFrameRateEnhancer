@@ -32,7 +32,7 @@ class TestImageSeparation(unittest.TestCase):
     #
     def test_separate_images(self):
         # Create mock images
-        for i in range(1, 6):
+        for i in range(0, 5):
             with open(os.path.join(self.source_folder, f'frame_video_{i:06d}.jpg'), 'w') as f:
                 f.write('test image content')
         ttd.distribute_images(self.source_folder, self.input_train_folder, self.output_train_folder)
@@ -45,7 +45,7 @@ class TestImageSeparation(unittest.TestCase):
 
     def test_separate_frames(self):
         os.makedirs(os.path.join(self.source_folder, 'video1'), exist_ok=True)
-        for i in range(1, 6):
+        for i in range(0, 5):
             create_dummy_image(os.path.join(self.source_folder, 'video1', f'frame_video_{i:06d}.jpg'))
 
         ttd.process_image_directories(self.source_folder, self.input_train_folder, self.output_train_folder, self.output_pickle_path)

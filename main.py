@@ -1,7 +1,6 @@
 import os
 
-from DataFlow import start_data_flow
-from EnhanceVideo import create_video
+import DataFlow as df
 
 IMG_HEIGHT = 240
 IMG_WIDTH = 360
@@ -17,13 +16,12 @@ TRAIN_FRAMES_DIR = os.path.join(ROOT_DIR, 'TrainingFramesDataset')
 TEST_FRAMES_DIR = os.path.join(ROOT_DIR, 'TestingFramesDataset')
 TRAINING_DATASET_DIR = os.path.join(ROOT_DIR, 'TrainingDataset')
 TESTING_DATASET_DIR = os.path.join(ROOT_DIR, 'TestingDataset')
+MEAN_STD_file = os.path.join(METADATA_DIR, 'mean_std.pkl')
+os.makedirs(METADATA_DIR, exist_ok=True)
 MODEL_PATH = ""
 VIDEO_NAME = ""
 
 
 
-start_data_flow(ROOT_DIR, VID_DIR, FRAMES_DIR, SCALE_DOWN_FRAMES_DIR, TRAIN_FRAMES_DIR, TEST_FRAMES_DIR,
-                TRAINING_DATASET_DIR, TESTING_DATASET_DIR, IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS)
-
-create_video(SCALE_DOWN_FRAMES_DIR, MODEL_PATH, INTERMEDIATE_FRAMES_DIR, VIDEO_NAME, VID_DIR, IMG_HEIGHT, IMG_WIDTH,
-             NUM_CHANNELS)
+df.start_data_flow(ROOT_DIR, VID_DIR, FRAMES_DIR, SCALE_DOWN_FRAMES_DIR, TRAIN_FRAMES_DIR, TEST_FRAMES_DIR,
+                TRAINING_DATASET_DIR, TESTING_DATASET_DIR, IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS, MEAN_STD_file)

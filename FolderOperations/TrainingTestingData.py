@@ -45,7 +45,7 @@ def distribute_images(source_folder: str, input_train_folder: str, output_train_
         match = pattern.match(filename)
         if match:
             frame_number = int(match.group(2))
-            target_folder = input_train_folder if frame_number % 2 != 0 else output_train_folder
+            target_folder = input_train_folder if frame_number % 2 == 0 else output_train_folder
             relocate_image(filename, source_folder, target_folder)
 
 

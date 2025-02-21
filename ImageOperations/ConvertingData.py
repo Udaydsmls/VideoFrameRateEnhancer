@@ -80,7 +80,7 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
 
 
 def preprocess_video_frames(input_train_folder: str, output_train_folder: str, processed_input_folder: str,
-                            processed_output_folder: str,
+                            processed_output_folder: str, mean_std_path: str,
                             img_height: int, img_width: int, num_channels: int, batch_size_percent: int = 1) -> None:
     """
     Preprocess frames from multiple video directories.
@@ -91,5 +91,5 @@ def preprocess_video_frames(input_train_folder: str, output_train_folder: str, p
         processed_input_path = os.path.join(processed_input_folder, folder)
         processed_output_path = os.path.join(processed_output_folder, folder)
 
-        preprocess_dataset(input_path, output_path, processed_input_path, processed_output_path, img_height, img_width,
+        preprocess_dataset(input_path, output_path, processed_input_path, processed_output_path, mean_std_path, img_height, img_width,
                            num_channels, batch_size_percent)
