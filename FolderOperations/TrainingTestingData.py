@@ -4,7 +4,7 @@ import re
 import pickle
 import glob
 from typing import List
-from ImageOperations.ImageNormalization import compute_dataset_mean_std
+import ImageOperations.ImageNormalization as im
 
 
 def ensure_directory_exists(path: str) -> None:
@@ -80,7 +80,7 @@ def process_image_directories(source_folder: str, input_train_folder: str, outpu
         all_image_paths.extend(gather_image_paths(train_path))
         all_image_paths.extend(gather_image_paths(test_path))
 
-    mean, std = compute_dataset_mean_std(all_image_paths)
+    mean, std = im.compute_dataset_mean_std(all_image_paths)
 
     with open(output_pickle, 'wb') as f:
         pickle.dump((mean, std), f)

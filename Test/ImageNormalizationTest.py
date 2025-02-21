@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from unittest.mock import patch
 from PIL import Image
-from ImageOperations import ImageNormalization as im
+import ImageOperations.ImageNormalization as im
 
 
 class TestImageProcessing(unittest.TestCase):

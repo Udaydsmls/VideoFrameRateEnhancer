@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 import pickle
-from FolderOperations import TrainingTestingData as ttd
+import FolderOperations.TrainingTestingData as ttd
 from PIL import Image
 
 

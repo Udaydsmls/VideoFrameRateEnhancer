@@ -1,9 +1,10 @@
 import shutil
 
-from ConvertingData_old import preprocessing_frame_data
-from VideoOperations import ExtractingFrames as ef
-from ImageOperations import ScaleDownImages as sd
-from FolderOperations import MovingBackFiles as mf, TrainingTestingData as ttd
+import VideoOperations.ExtractingFrames as ef
+import ImageOperations.ScaleDownImages as sd
+import ImageOperations.ConvertingData as cd
+import FolderOperations.MovingBackFiles as mf
+import FolderOperations.TrainingTestingData as ttd
 import os
 
 
@@ -35,7 +36,7 @@ def start_data_flow(root_dir, vid_dir, frames_dir, scale_down_frames_dir, train_
 
     print('Frames separated')
 
-    preprocessing_frame_data(train_frames_dir, test_frames_dir, training_dataset_dir, testing_dataset_dir, img_height,
+    cd.preprocess_video_frames(train_frames_dir, test_frames_dir, training_dataset_dir, testing_dataset_dir, img_height,
                              img_width,
                              num_channels)
     print('Frames processed')
@@ -46,7 +47,3 @@ def start_data_flow(root_dir, vid_dir, frames_dir, scale_down_frames_dir, train_
 
     shutil.rmtree(train_frames_dir)
     shutil.rmtree(test_frames_dir)
-
-
-if __name__ == '__main__':
-    start_data_flow()
