@@ -1,0 +1,16 @@
+{
+  "absolute_path": "",
+  "root_dir": "data",
+  "metadata_dir": "metadata",
+  "vid_dir": "videos",
+  "frames_dir": "frames",
+  "intermediate_frames_dir": "intermediate_frames",
+  "scale_down_frames_dir": "scale_down",
+  "input_train_frames_dir": "input_train_frames",
+  "output_train_frames_dir": "output_train_frames",
+  "input_training_dataset": "input_training_dataset",
+  "output_training_dataset": "output_training_dataset",
+  "mean_std_file": "mean_std",
+  "model_path": "",
+  "video_name": ""
+}
