@@ -58,7 +58,8 @@ def gather_image_paths(directory: str) -> List[str]:
     return glob.glob(os.path.join(directory, '*.jpg'))
 
 
-def process_image_directories(source_folder: str, input_train_folder: str, output_train_folder: str, output_pickle: str) -> None:
+def process_image_directories(source_folder: str, input_train_folder: str, output_train_folder: str,
+                              output_pickle: str) -> None:
     """
     Separates all image directories into training and testing sets.
     Processes each directory in the source folder and moves images accordingly.
