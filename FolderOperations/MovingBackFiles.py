@@ -63,3 +63,4 @@ def merge_subdirectories(source_dir1: str, source_dir2: str, destination_dir: st
             os.path.join(source_dir2, subdirectory),
             os.path.join(destination_dir, subdirectory)
         )
+        print(f"Successfully merged subdirectory '{subdirectory}' into '{subdirectory}'.")

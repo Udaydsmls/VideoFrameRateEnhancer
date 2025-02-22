@@ -90,6 +90,8 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
         save_preprocessed_data(processed_input_folder, f"trainData_{base_folder}_{i:06d}.npz", "train", input_data)
         save_preprocessed_data(processed_output_folder, f"testData_{base_folder}_{i:06d}.npz", "test", output_data)
 
+    print(f"Processed files from {base_folder} to npz.")
+
 
 def preprocess_video_frames(input_train_folder: str, output_train_folder: str, processed_input_folder: str,
                             processed_output_folder: str, batch_size_percent: int = 1) -> None:

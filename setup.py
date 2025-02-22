@@ -37,7 +37,7 @@ def get_values(config_file: str="setup.json") -> dict:
         data = json.load(f)
 
     values = {
-        "batch_size": data["batch_size"],
+        "batch_size": data["batch_size_percent_int"],
         "scale_down_factor": data["scale_down_factor"],
     }
 

@@ -81,6 +81,8 @@ def process_image_directories(source_folder: str, input_train_folder: str, outpu
         all_image_paths.extend(gather_image_paths(train_path))
         all_image_paths.extend(gather_image_paths(test_path))
 
+        print(f"Files separated in {frame_folder}")
+
     mean, std = im.compute_dataset_mean_std(all_image_paths)
 
     paths = setup.get_paths()

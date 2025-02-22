@@ -5,7 +5,7 @@ import os
 from sklearn.utils import shuffle
 from tensorflow.keras import backend as K
 import gc
-from DataFlow import IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS, TRAINING_DATASET_DIR, TESTING_DATASET_DIR
+from FolderOperations.DataFlow import IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS, TRAINING_DATASET_DIR, TESTING_DATASET_DIR
 
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)

@@ -3,7 +3,6 @@ from pathlib import Path
 
 VALID_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
-
 def is_valid_image(filename: str) -> bool:
     """Check if a file has a valid image extension."""
     return filename.lower().endswith(VALID_EXTENSIONS)
@@ -55,3 +54,4 @@ def resize_images_in_subfolders(input_folder: str, output_folder: str, scale_fac
     for subfolder in input_folder.iterdir():
         if subfolder.is_dir():
             batch_resize_images(str(subfolder), str(output_folder / subfolder.name), scale_factor)
+            print(f"{subfolder.name} resized.")
