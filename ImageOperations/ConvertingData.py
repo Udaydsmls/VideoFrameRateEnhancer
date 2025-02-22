@@ -1,8 +1,11 @@
 import os
 import pickle
+import cv2
 import numpy as np
 import tensorflow as tf
 from sklearn.utils import shuffle
+
+import setup
 from ImageOperations.ImageNormalization import normalize_image
 
 
@@ -41,7 +44,6 @@ def save_preprocessed_data(folder: str, filename: str, data_key: str, data: np.n
 
 
 def preprocess_dataset(input_folder: str, output_folder: str, processed_input_folder: str, processed_output_folder: str,
-                       mean_std_path: str, img_height: int, img_width: int, num_channels: int,
                        batch_size_percent: int = 1) -> None:
     """
     Preprocess images from input and output folders and store them in batches.
@@ -56,7 +58,17 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
     paired_input_paths, output_paths = shuffle(paired_input_paths[:min_length], output_paths[:min_length],
                                                random_state=42)
 
-    with open(mean_std_path, "rb") as f:
+    paths = setup.get_paths()
+
+    dim_image = cv2.imread(paired_input_paths[0][0]).shape
+    img_height, img_width, num_channels = dim_image
+
+    dim_path = os.path.join(paths['dataset_dimensions'], f"dims_{base_folder}.pkl")
+
+    with open(dim_path, "wb") as f:
+        pickle.dump((img_height, img_width, num_channels), f)
+
+    with open(paths['mean_std_file'], "rb") as f:
         mean, std = pickle.load(f)
 
     batch_size = max(1, (len(paired_input_paths) * batch_size_percent) // 100)
@@ -80,8 +92,7 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
 
 
 def preprocess_video_frames(input_train_folder: str, output_train_folder: str, processed_input_folder: str,
-                            processed_output_folder: str, mean_std_path: str,
-                            img_height: int, img_width: int, num_channels: int, batch_size_percent: int = 1) -> None:
+                            processed_output_folder: str, batch_size_percent: int = 1) -> None:
     """
     Preprocess frames from multiple video directories.
     """
@@ -91,5 +102,4 @@ def preprocess_video_frames(input_train_folder: str, output_train_folder: str, p
         processed_input_path = os.path.join(processed_input_folder, folder)
         processed_output_path = os.path.join(processed_output_folder, folder)
 
-        preprocess_dataset(input_path, output_path, processed_input_path, processed_output_path, mean_std_path, img_height, img_width,
-                           num_channels, batch_size_percent)
+        preprocess_dataset(input_path, output_path, processed_input_path, processed_output_path, batch_size_percent)

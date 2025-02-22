@@ -5,6 +5,7 @@ import pickle
 import glob
 from typing import List
 import ImageOperations.ImageNormalization as im
+import setup
 
 
 def ensure_directory_exists(path: str) -> None:
@@ -58,8 +59,7 @@ def gather_image_paths(directory: str) -> List[str]:
     return glob.glob(os.path.join(directory, '*.jpg'))
 
 
-def process_image_directories(source_folder: str, input_train_folder: str, output_train_folder: str,
-                              output_pickle: str) -> None:
+def process_image_directories(source_folder: str, input_train_folder: str, output_train_folder: str) -> None:
     """
     Separates all image directories into training and testing sets.
     Processes each directory in the source folder and moves images accordingly.
@@ -83,5 +83,7 @@ def process_image_directories(source_folder: str, input_train_folder: str, outpu
 
     mean, std = im.compute_dataset_mean_std(all_image_paths)
 
-    with open(output_pickle, 'wb') as f:
+    paths = setup.get_paths()
+
+    with open(paths['mean_std_file'], 'wb') as f:
         pickle.dump((mean, std), f)

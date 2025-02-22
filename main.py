@@ -1,15 +1,9 @@
 import DataFlow as df
 import setup
 
-IMG_HEIGHT = 240
-IMG_WIDTH = 360
-NUM_CHANNELS = 3
-
-MODEL_PATH = ""
-VIDEO_NAME = ""
-
 setup.setup()
 paths = setup.get_paths()
+values = setup.get_values()
 
 root = paths["root"]
 metadata = paths["metadata"]
@@ -23,5 +17,8 @@ input_training_dataset = paths["input_training_dataset"]
 output_training_dataset = paths["output_training_dataset"]
 mean_std_file = paths["mean_std_file"]
 
+batch_size = values["batch_size"]
+scale_down_factor = values["scale_down_factor"]
+
 df.start_data_flow(vid_dir, frames_dir, scale_down_frames_dir, input_train_frames_dir, output_train_frames_dir,
-                   input_training_dataset, output_training_dataset, IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS, mean_std_file, 0.25)
+                   input_training_dataset, output_training_dataset, batch_size, scale_down_factor)
