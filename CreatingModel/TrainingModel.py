@@ -96,5 +96,5 @@ def train_model() -> None:
             gc.collect()
 
             model.save(os.path.join(paths['models'],
-                        f"image_translation_model_{img_height}_{img_width}_{num_channels}_{dataset_idx}_{file_idx}"),
+                        f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx}"),
                        save_format="tf")
