@@ -19,11 +19,11 @@ The main objective of this program is to double the frame rate of any given inpu
 ## Installation
 1. **Clone the Repository:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Udaydsmls/VideoFrameRateEnhancer.git
    ```
 2. **Navigate to the Project Directory:**
    ```bash
-   cd <repository-directory>
+   cd VideoFrameRateEnhancer
    ```
 3. **Install Dependencies:**
    ```bash
