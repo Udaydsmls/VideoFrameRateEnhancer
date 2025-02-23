@@ -17,7 +17,7 @@ def load_image(image_path: str, img_height: int, img_width: int, num_channels: i
     image = tf.io.read_file(image_path)
     image = tf.image.decode_jpeg(image, channels=num_channels)
     image = tf.image.resize(image, [img_height, img_width])
-    return image / 255.0
+    return (image / 255.0).numpy()
 
 
 def preprocess_image(image: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.array:
