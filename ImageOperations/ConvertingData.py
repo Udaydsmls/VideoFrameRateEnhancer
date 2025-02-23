@@ -7,6 +7,7 @@ from sklearn.utils import shuffle
 
 import setup
 from ImageOperations.ImageNormalization import normalize_image
+import utilities.utils as utils
 
 
 def load_image(image_path: str, img_height: int, img_width: int, num_channels: int) -> np.ndarray:
@@ -68,8 +69,7 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
     with open(dim_path, "wb") as f:
         pickle.dump((img_height, img_width, num_channels), f)
 
-    with open(paths['mean_std_file'], "rb") as f:
-        mean, std = pickle.load(f)
+    mean, std = utils.load_mean_std_file()
 
     batch_size = max(1, (len(paired_input_paths) * batch_size_percent) // 100)
 

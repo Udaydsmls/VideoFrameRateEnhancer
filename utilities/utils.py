@@ -18,14 +18,17 @@ def load_latest_model() -> str:
     return os.path.join(model_dir, latest_model)
 
 
-def load_dataset_dimensions() -> tuple:
-    """Loads dataset dimensions from the first available file."""
+def load_mean_std_file() -> tuple:
+    """
+    Loads mean and std file and returns mean and std as a tuple.
+    """
     paths = setup.get_paths()
-    dataset_dims_path = paths['dataset_dimensions']
-    file_list = os.listdir(dataset_dims_path)
+    file = paths['mean_std_file']
 
-    if not file_list:
-        raise FileNotFoundError("No dataset dimension files found.")
+    if not os.path.isfile(file):
+        raise FileNotFoundError("No mean std file found.")
 
-    with open(os.path.join(dataset_dims_path, file_list[0]), 'rb') as f:
-        return pickle.load(f)
+    with open(file, "rb") as f:
+        mean, std = pickle.load(f)
+
+    return mean, std

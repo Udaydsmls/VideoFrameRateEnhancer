@@ -9,6 +9,7 @@ import tensorflow as tf
 import ImageOperations.ConvertingData as cd
 import ImageOperations.ImageNormalization as im
 import FolderOperations.MovingBackFiles as mf
+import utilities.utils as utils
 
 
 def load_model(model_path: str) -> tf.keras.Model:
@@ -54,7 +55,7 @@ def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> N
     """
 
     model = load_model(model_path)
-    mean, std = calculate_frames_mean_std(input_dir)
+    mean, std = utils.load_mean_std_file()
 
     for video_folder in os.listdir(input_dir):
         video_input_path = os.path.join(input_dir, video_folder)
