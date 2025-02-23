@@ -10,11 +10,17 @@ import os
 
 def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, input_frames_dir: str,
                     output_frames_dir: str, input_training_dataset_dir: str, output_training_dataset_dir: str,
-                    batch_size_percent: int, scale_factor: float) -> None:
+                    batch_size_percent: int, scale_factor: float) -> bool:
     video_paths = [os.path.join(vid_dir, file_name) for file_name in os.listdir(vid_dir)]
+    """
+    Processes, formats and stores the data in it required location.
+    """
+
     if len(video_paths) == 0:
-        print("No video files found")
-        return
+        print("No video files found!!")
+        print("Put the video files into your vid_dir folder from setup.json")
+        print("Exiting...")
+        return False
 
     for video in video_paths:
         ef.save_video_frames(video, frames_dir)
@@ -30,3 +36,5 @@ def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, i
 
     shutil.rmtree(input_frames_dir)
     shutil.rmtree(output_frames_dir)
+
+    return True

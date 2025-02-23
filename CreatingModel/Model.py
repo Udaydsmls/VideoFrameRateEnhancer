@@ -25,7 +25,7 @@ def create_image_translation_model(img_height: int, img_width: int, num_channels
     x = layers.MaxPooling2D((2, 2), padding='same')(x)
 
     x = layers.SeparableConv2D(512, (3, 3), activation='tanh', padding='same')(x)
-    x = layers.Reshape((1, math.ceil(img_height / 8), math.ceil(img_width / 8), 512))(x)  # Prepare for ConvLSTM2D
+    x = layers.Reshape((1, math.ceil(img_height / 8), math.ceil(img_width / 8), 512))(x)
 
     x = layers.ConvLSTM2D(512, (3, 3), activation='tanh', padding='same', return_sequences=True)(x)
     x = layers.ConvLSTM2D(512, (3, 3), activation='tanh', padding='same', return_sequences=False)(x)
@@ -33,6 +33,7 @@ def create_image_translation_model(img_height: int, img_width: int, num_channels
     x = layers.Conv2DTranspose(256, (3, 3), strides=2, activation='tanh', padding='same')(x)
     x = layers.Conv2DTranspose(128, (3, 3), strides=2, activation='tanh', padding='same')(x)
     x = layers.Conv2DTranspose(64, (3, 3), strides=2, activation='tanh', padding='same')(x)
+
     output = layers.Conv2DTranspose(num_channels, (3, 3), activation='tanh', padding='same')(x)
     output = layers.Cropping2D(cropping=((output.shape[1] - img_height, 0), (output.shape[2] - img_width, 0)))(output)
 

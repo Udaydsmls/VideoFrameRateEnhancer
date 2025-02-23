@@ -6,6 +6,7 @@ import utilities.utils as utils
 import VideoOperations.InterpolatedImages as ii
 import setup
 
+
 def main():
     """ Running the Program."""
     print("=" * 80)
@@ -35,10 +36,13 @@ def main():
     scale_down_factor = values["scale_down_factor"]
 
     print("\n[1/4] Starting Data Flow...")
-    df.start_data_flow(vid_dir, frames_dir, scale_down_frames_dir,
-                       input_train_frames_dir, output_train_frames_dir,
-                       input_training_dataset, output_training_dataset,
-                       batch_size, scale_down_factor)
+    success = df.start_data_flow(vid_dir, frames_dir, scale_down_frames_dir,
+                                 input_train_frames_dir, output_train_frames_dir,
+                                 input_training_dataset, output_training_dataset,
+                                 batch_size, scale_down_factor)
+
+    if not success: sys.exit(0)
+
     print("Data flow completed successfully.")
 
     while True:
@@ -56,7 +60,6 @@ def main():
         else:
             print("Invalid input. Please enter 1 or 2.")
 
-
     print("\n[3/4] Loading the Latest Model...")
     model_path = utils.load_latest_model()
     if not model_path:
@@ -73,6 +76,7 @@ def main():
     print("Video enhancement completed successfully.")
 
     print("\nAll operations completed successfully!")
+
 
 if __name__ == "__main__":
     main()
