@@ -2,8 +2,9 @@
 # Video Frame Rate Enhancer Pipeline
 
 ## Overview
-This project implements a terminal-based video enhancement pipeline that processes video files through several stages: data flow management, model training (or using an existing model), frame generation, and video frame rate enhancement. It offers a user-friendly interface with clear instructions and options for training a new model or reusing an existing one.
+This project implements a terminal-based video enhancement pipeline that processes video files through several stages: data flow management, model training (or utilizing an existing model), frame generation, and video frame rate enhancement. It offers a user-friendly interface with clear instructions and options for training a new model or reusing an existing one.
 
+The main objective of this program is to double the frame rate of any given input video.
 ## Features
 - **User-Friendly Terminal UI:** Guides you through the setup and process.
 - **Configurable Paths:** Easily update file paths via `setup.json`.
@@ -80,10 +81,3 @@ During execution, you'll see:
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgements
-Thank you to all contributors and libraries that helped make this project possible.
-
----
-
-Feel free to adjust the content as needed for your project specifics or add additional sections such as "Troubleshooting" or "Contributing."
