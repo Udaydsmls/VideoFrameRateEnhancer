@@ -49,7 +49,8 @@ def main():
         print("\nWould you like to:")
         print("  1. Train a new model")
         print("  2. Use the existing model")
-        choice = input("Enter your choice (1 or 2): ").strip()
+        print("  3. Train a new model and exit")
+        choice = input("Enter your choice (1, 2 or 3): ").strip()
         if choice == "1":
             print("\n[2/4] Training the Model...")
             tm.train_model()
@@ -57,8 +58,13 @@ def main():
         elif choice == "2":
             print("\nSkipping model training. Using the existing model.")
             break
+        elif choice == "3":
+            print("\n[2/4] Training the Model...")
+            tm.train_model()
+            print("\nExiting...")
+            return
         else:
-            print("Invalid input. Please enter 1 or 2.")
+            print("Invalid input. Please enter 1, 2 or 3.")
 
     print("\n[3/4] Loading the Latest Model...")
     model_path = utils.load_latest_model()
