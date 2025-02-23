@@ -1,7 +1,9 @@
 import FolderOperations.DataFlow as df
 import CreatingModel.TrainingModel as tm
+import ImageOperations.GenerateFrames as gen
+import utilities.utils as utils
+import VideoOperations.InterpolatedImages as ii
 import setup
-
 
 setup.setup()
 paths = setup.get_paths()
@@ -18,6 +20,7 @@ output_train_frames_dir = paths["output_train_frames_dir"]
 input_training_dataset = paths["input_training_dataset"]
 output_training_dataset = paths["output_training_dataset"]
 mean_std_file = paths["mean_std_file"]
+enhanced_videos = paths["enhanced_videos"]
 
 batch_size = values["batch_size"]
 scale_down_factor = values["scale_down_factor"]
@@ -26,3 +29,9 @@ df.start_data_flow(vid_dir, frames_dir, scale_down_frames_dir, input_train_frame
                    input_training_dataset, output_training_dataset, batch_size, scale_down_factor)
 
 tm.train_model()
+
+model_path = utils.load_latest_model()
+
+gen.generate_video_frames(scale_down_frames_dir, model_path, intermediate_frames_dir)
+
+ii.enhance_videos_frame_rate(scale_down_frames_dir, enhanced_videos)

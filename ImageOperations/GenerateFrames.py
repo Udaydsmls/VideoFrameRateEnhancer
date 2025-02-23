@@ -1,10 +1,14 @@
 import os
-import pickle
+import glob
+import shutil
+
+import cv2
 import numpy as np
 import tensorflow as tf
 
-from ConvertingData import load_and_preprocess_image
-from ImageNormalization import denormalize_image
+import ImageOperations.ConvertingData as cd
+import ImageOperations.ImageNormalization as im
+import FolderOperations.MovingBackFiles as mf
 
 
 def load_model(model_path: str) -> tf.keras.Model:
@@ -12,13 +16,21 @@ def load_model(model_path: str) -> tf.keras.Model:
     return tf.keras.models.load_model(model_path)
 
 
-def load_dataset_mean_std(mean_std_file: str = "MeanStdForDataset") -> tuple:
-    """Loads the dataset mean and standard deviation from a pickle file."""
-    with open(mean_std_file, "rb") as f:
-        return pickle.load(f)
+def calculate_frames_mean_std(input_dir: str) -> tuple:
+    """Calculates mean and standard deviation of the given frames"""
+    all_image_paths = []
+
+    for frame_folder in os.listdir(input_dir):
+        source_path = os.path.join(input_dir, frame_folder)
+        all_image_paths.extend(glob.glob(os.path.join(source_path, '*.jpg')))
+
+    mean, std = im.compute_dataset_mean_std(all_image_paths)
+
+    return mean, std
 
 
-def process_frame_pair(model, first_frame, second_frame, mean, std) -> np.ndarray:
+def process_frame_pair(model: tf.keras.models.Model, first_frame: np.ndarray, second_frame: np.ndarray,
+                       mean: np.ndarray, std: np.ndarray) -> np.ndarray:
     """
     Generates a predicted frame using the model and denormalizes it.
     """
@@ -26,28 +38,23 @@ def process_frame_pair(model, first_frame, second_frame, mean, std) -> np.ndarra
     second_frame = second_frame.reshape(1, *second_frame.shape)
 
     prediction = model.predict([first_frame, second_frame])[0]
-    prediction_denormalized = denormalize_image(prediction, mean, std)
+    prediction_denormalized = im.denormalize_image(prediction, mean, std)
     np.clip(prediction_denormalized, 0, 1, out=prediction_denormalized)
 
     return (prediction_denormalized * 255).astype(np.uint8)
 
 
-def generate_video_frames(input_dir: str, model_path: str, output_dir: str, img_height: int, img_width: int,
-                          num_channels: int) -> None:
+def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> None:
     """
     Generates frames using a trained model and saves them to the output directory.
 
     :param input_dir: Directory containing input video frames.
     :param model_path: Path to the trained model.
     :param output_dir: Directory to save generated frames.
-    :param img_height: Height of the images.
-    :param img_width: Width of the images.
-    :param num_channels: Number of image channels.
     """
-    model = load_model(model_path)
-    mean, std = load_dataset_mean_std()
 
-    os.makedirs(output_dir, exist_ok=True)
+    model = load_model(model_path)
+    mean, std = calculate_frames_mean_std(input_dir)
 
     for video_folder in os.listdir(input_dir):
         video_input_path = os.path.join(input_dir, video_folder)
@@ -59,18 +66,25 @@ def generate_video_frames(input_dir: str, model_path: str, output_dir: str, img_
             [os.path.join(video_input_path, fname) for fname in os.listdir(video_input_path) if fname.endswith(".jpg")]
         )
 
-        if not frame_files:
-            continue  # Skip empty folders
+        img_height, img_width, num_channels = cv2.imread(frame_files[0]).shape
 
-        first_frame = load_and_preprocess_image(frame_files[0], img_height, img_width, num_channels, mean, std)
+        if not frame_files:
+            continue
+
+        first_frame = cd.load_and_preprocess_image(frame_files[0], img_height, img_width, num_channels, mean, std)
         first_frame_name = os.path.splitext(os.path.basename(frame_files[0]))[0]
 
         for i in range(len(frame_files) - 1):
-            second_frame = load_and_preprocess_image(frame_files[i + 1], img_height, img_width, num_channels, mean, std)
+            second_frame = cd.load_and_preprocess_image(frame_files[i + 1], img_height, img_width, num_channels, mean,
+                                                        std)
             predicted_frame = process_frame_pair(model, first_frame, second_frame, mean, std)
 
             output_filename = os.path.join(video_output_path, f"{first_frame_name}_5.jpg")
             tf.io.write_file(output_filename, tf.image.encode_jpeg(predicted_frame))
 
             first_frame_name = os.path.splitext(os.path.basename(frame_files[i + 1]))[0]
-            first_frame = second_frame  # Update for the next iteration
+            first_frame = second_frame
+
+    mf.merge_subdirectories(input_dir, output_dir, input_dir)
+
+    shutil.rmtree(output_dir)

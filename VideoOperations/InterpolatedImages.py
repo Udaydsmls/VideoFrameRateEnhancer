@@ -2,6 +2,8 @@ import os
 import math
 import cv2
 
+import setup
+
 
 def create_video_from_images(input_directory: str, output_video_path: str, frame_rate: int) -> None:
     """
@@ -57,3 +59,27 @@ def extract_video_frame_rate(video_path: str) -> int:
     video_capture.release()
 
     return math.ceil(fps)
+
+
+def enhance_videos_frame_rate(input_dir: str, output_dir: str) -> None:
+    """
+    Creates videos based on twice the original frame rate of the videos and generated frames.
+    :param input_dir: Directory containing image frames (.jpg) to be combined.
+    :param output_dir: Path to save the generated video files.
+    """
+    paths = setup.get_paths()
+    video_dir = paths["vid_dir"]
+    videos = os.listdir(video_dir)
+    folders = os.listdir(input_dir)
+
+    for folder in folders:
+        video_path = ""
+        for video in videos:
+            if folder in video:
+                video_path = os.path.join(video_dir, video)
+                break
+
+        vid_frame_rate = extract_video_frame_rate(video_path)
+        output_path = os.path.join(output_dir, f"{folder}.mp4")
+
+        create_video_from_images(os.path.join(input_dir, folder), output_path, 2 * vid_frame_rate)

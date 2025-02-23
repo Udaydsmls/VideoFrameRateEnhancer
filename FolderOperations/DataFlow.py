@@ -4,12 +4,12 @@ import VideoOperations.ExtractingFrames as ef
 import ImageOperations.ScaleDownImages as sd
 import ImageOperations.ConvertingData as cd
 import FolderOperations.MovingBackFiles as mf
-import FolderOperations.TrainingTestingData as ttd
+import FolderOperations.SeparateData as ttd
 import os
 
 
-def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, train_frames_dir: str,
-                    test_frames_dir: str, training_dataset_dir: str, testing_dataset_dir: str,
+def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, input_frames_dir: str,
+                    output_frames_dir: str, input_training_dataset_dir: str, output_training_dataset_dir: str,
                     batch_size_percent: int, scale_factor: float) -> None:
     video_paths = [os.path.join(vid_dir, file_name) for file_name in os.listdir(vid_dir)]
     if len(video_paths) == 0:
@@ -21,12 +21,12 @@ def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, t
 
     sd.resize_images_in_subfolders(frames_dir, scale_down_frames_dir, scale_factor)
 
-    ttd.process_image_directories(scale_down_frames_dir, train_frames_dir, test_frames_dir)
+    ttd.process_image_directories(scale_down_frames_dir, input_frames_dir, output_frames_dir)
 
-    cd.preprocess_video_frames(train_frames_dir, test_frames_dir, training_dataset_dir, testing_dataset_dir,
-                               batch_size_percent)
+    cd.preprocess_video_frames(input_frames_dir, output_frames_dir, input_training_dataset_dir,
+                               output_training_dataset_dir, batch_size_percent)
 
-    mf.merge_subdirectories(train_frames_dir, test_frames_dir, scale_down_frames_dir)
+    mf.merge_subdirectories(input_frames_dir, output_frames_dir, scale_down_frames_dir)
 
-    shutil.rmtree(train_frames_dir)
-    shutil.rmtree(test_frames_dir)
+    shutil.rmtree(input_frames_dir)
+    shutil.rmtree(output_frames_dir)

@@ -12,8 +12,7 @@
   "output_training_dataset": "output_training_dataset",
   "mean_std_file": "mean_std",
   "trained_models": "models",
+  "enhanced_videos_dir": "enhanced_videos",
   "batch_size_percent_int": 10,
-  "scale_down_factor": 0.25,
-  "model_path": "",
-  "video_name": ""
+  "scale_down_factor": 0.25
 }

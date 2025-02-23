@@ -25,7 +25,8 @@ def get_paths(config_file: str = "setup.json") -> dict:
         "output_train_frames_dir": os.path.join(root, data["output_train_frames_dir"]),
         "input_training_dataset": os.path.join(root, data["input_training_dataset"]),
         "output_training_dataset": os.path.join(root, data["output_training_dataset"]),
-        "models": os.path.join(root, data["metadata_dir"], data["trained_models"]),
+        "enhanced_videos": os.path.join(root, data["enhanced_videos_dir"]),
+        "models": os.path.join(root, data["trained_models"]),
         "dataset_dimensions": os.path.join(root, data["metadata_dir"], "dimensions"),
         "mean_std_file": os.path.join(root, data["metadata_dir"], f'{data["mean_std_file"]}.pkl'),
         ## is there even any point to have this; what to do about dimensions folder in metadata?
