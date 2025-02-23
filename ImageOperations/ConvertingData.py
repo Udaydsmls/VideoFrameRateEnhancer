@@ -87,8 +87,8 @@ def preprocess_dataset(input_folder: str, output_folder: str, processed_input_fo
             load_and_preprocess_image(img, img_height, img_width, num_channels, mean, std) for img in output_chunk
         ])
 
-        save_preprocessed_data(processed_input_folder, f"trainData_{base_folder}_{i:06d}.npz", "train", input_data)
-        save_preprocessed_data(processed_output_folder, f"testData_{base_folder}_{i:06d}.npz", "test", output_data)
+        save_preprocessed_data(processed_input_folder, f"trainData_{base_folder}_{i:06d}.npz", "input", input_data)
+        save_preprocessed_data(processed_output_folder, f"testData_{base_folder}_{i:06d}.npz", "output", output_data)
 
     print(f"Processed files from {base_folder} to npz.")
 

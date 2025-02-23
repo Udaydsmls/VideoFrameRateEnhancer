@@ -11,7 +11,8 @@
   "input_training_dataset": "input_training_dataset",
   "output_training_dataset": "output_training_dataset",
   "mean_std_file": "mean_std",
-  "batch_size_percent_int": 1,
+  "trained_models": "models",
+  "batch_size_percent_int": 10,
   "scale_down_factor": 0.25,
   "model_path": "",
   "video_name": ""
