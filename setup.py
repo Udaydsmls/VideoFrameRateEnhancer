@@ -39,15 +39,34 @@ def get_values(config_file: str = "setup.json") -> dict:
     """
     Return all the values present in the configuration file.
     """
-    with open(config_file, "r") as f:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(script_dir, config_file), "r") as f:
         data = json.load(f)
 
     values = {
-        "batch_size": data["batch_size_percent_int"],
+        "batch_size": data["storing_batch_size_percent_int"],
         "scale_down_factor": data["scale_down_factor"],
     }
 
     return values
+
+def get_model_params(config_file: str = "setup.json") -> dict:
+    """
+    Return all the model parameters present in the configuration file.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(script_dir, config_file), "r") as f:
+        data = json.load(f)
+
+    params = {
+        "batch_size": data["batch_size_model"],
+        "num_epochs": data["num_epochs_model"],
+        "validation_split": data["validation_split_model"],
+    }
+
+    return params
 
 
 def setup(config_file: str = "setup.json") -> None:

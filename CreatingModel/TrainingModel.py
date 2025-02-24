@@ -56,6 +56,7 @@ def train_model() -> None:
     Trains the image translation model and saves it to the specified directory.
     """
     paths = setup.get_paths()
+    params = setup.get_model_params()
 
     if not check_dataset_dimensions():
         return
@@ -90,7 +91,8 @@ def train_model() -> None:
 
             X1, X2, Y = shuffle(X1, X2, Y, random_state=42)
 
-            model.fit([X1, X2], Y, epochs=10, batch_size=8, validation_split=0.1)
+            model.fit([X1, X2], Y, epochs=params['num_epochs'], batch_size=params['batch_size'],
+                      validation_split=params['validation_split'])
 
             K.clear_session()
             gc.collect()
