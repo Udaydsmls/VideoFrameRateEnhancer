@@ -6,6 +6,7 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 from tensorflow.keras import backend as K
 import CreatingModel.Model as ml
+import utilities.utils as utils
 import setup
 
 
@@ -51,7 +52,7 @@ def load_dataset_dimensions() -> tuple:
         return pickle.load(f)
 
 
-def train_model() -> None:
+def train_model(continue_training: bool = False) -> None:
     """
     Trains the image translation model and saves it to the specified directory.
     """
@@ -62,8 +63,13 @@ def train_model() -> None:
         return
 
     img_height, img_width, num_channels = load_dataset_dimensions()
-    model = ml.create_image_translation_model(img_height, img_width, num_channels)
-    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+    if not continue_training:
+        model = ml.create_image_translation_model(img_height, img_width, num_channels)
+        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    else:
+        model_path = utils.load_latest_model()
+        model = tf.keras.models.load_model(model_path)
 
     print(model.summary())
 
@@ -97,6 +103,6 @@ def train_model() -> None:
             K.clear_session()
             gc.collect()
 
-            model.save(os.path.join(paths['models'],
-                        f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx}"),
+        model.save(os.path.join(paths['models'],
+                        f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{101}"),
                        save_format="tf")

@@ -19,8 +19,6 @@ def main():
     paths = setup.get_paths()
     values = setup.get_values()
 
-    root = paths["root"]
-    metadata = paths["metadata"]
     vid_dir = paths["vid_dir"]
     frames_dir = paths["frames_dir"]
     intermediate_frames_dir = paths["intermediate_frames_dir"]
@@ -29,7 +27,6 @@ def main():
     output_train_frames_dir = paths["output_train_frames_dir"]
     input_training_dataset = paths["input_training_dataset"]
     output_training_dataset = paths["output_training_dataset"]
-    mean_std_file = paths["mean_std_file"]
     enhanced_videos = paths["enhanced_videos"]
 
     batch_size = values["batch_size"]
@@ -50,6 +47,7 @@ def main():
         print("  1. Train a new model")
         print("  2. Use the existing model")
         print("  3. Train a new model and exit")
+        print("  4. Continue Training on previous model")
         choice = input("Enter your choice (1, 2 or 3): ").strip()
         if choice == "1":
             print("\n[2/4] Training the Model...")
@@ -63,6 +61,10 @@ def main():
             tm.train_model()
             print("\nExiting...")
             return
+        elif choice == "4":
+            print("\n[2/4] Continue training the Model...")
+            tm.train_model(True)
+            break
         else:
             print("Invalid input. Please enter 1, 2 or 3.")
 

@@ -27,6 +27,8 @@ def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, i
 
     sd.resize_images_in_subfolders(frames_dir, scale_down_frames_dir, scale_factor)
 
+    shutil.rmtree(frames_dir)
+
     ttd.process_image_directories(scale_down_frames_dir, input_frames_dir, output_frames_dir)
 
     cd.preprocess_video_frames(input_frames_dir, output_frames_dir, input_training_dataset_dir,

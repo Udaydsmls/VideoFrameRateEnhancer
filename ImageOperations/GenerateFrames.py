@@ -12,11 +12,6 @@ import FolderOperations.MovingBackFiles as mf
 import utilities.utils as utils
 
 
-def load_model(model_path: str) -> tf.keras.Model:
-    """Loads and returns the trained TensorFlow model."""
-    return tf.keras.models.load_model(model_path)
-
-
 def calculate_frames_mean_std(input_dir: str) -> tuple:
     """Calculates mean and standard deviation of the given frames"""
     all_image_paths = []
@@ -54,7 +49,7 @@ def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> N
     :param output_dir: Directory to save generated frames.
     """
 
-    model = load_model(model_path)
+    model = tf.keras.models.load_model(model_path)
     mean, std = utils.load_mean_std_file()
 
     for video_folder in os.listdir(input_dir):
