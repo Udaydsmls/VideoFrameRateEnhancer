@@ -1,4 +1,4 @@
-from PIL import Image
+import tensorflow as tf
 from pathlib import Path
 
 VALID_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -16,10 +16,16 @@ def resize_image(input_path: Path, output_path: Path, scale_factor: float) -> No
     :param output_path: Path where the resized image will be saved.
     :param scale_factor: Factor by which the image will be resized.
     """
-    img = Image.open(input_path)
-    new_size = (int(img.width * scale_factor), int(img.height * scale_factor))
-    img_resized = img.resize(new_size, Image.LANCZOS)
-    img_resized.save(output_path)
+    image_data = tf.io.read_file(str(input_path))
+    img = tf.image.decode_image(image_data, channels=3)
+
+    new_size = tf.cast([tf.shape(img)[0] * scale_factor, tf.shape(img)[1] * scale_factor], tf.int32)
+
+    img_resized = tf.image.resize(img, new_size, method=tf.image.ResizeMethod.LANCZOS3, antialias=True)
+    img_resized = tf.cast(img_resized, tf.uint8)
+
+    encoded_image = tf.io.encode_jpeg(img_resized)
+    tf.io.write_file(str(output_path), encoded_image)
 
 
 def batch_resize_images(input_folder: str, output_folder: str, scale_factor: float = 0.5) -> None:
