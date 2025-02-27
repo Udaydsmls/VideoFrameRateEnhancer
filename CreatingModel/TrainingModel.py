@@ -1,10 +1,12 @@
 import os
 import gc
 import pickle
+import shutil
 import numpy as np
 import tensorflow as tf
 from sklearn.utils import shuffle
 from tensorflow.keras import backend as K
+
 import CreatingModel.Model as ml
 import utilities.utils as utils
 import setup
@@ -103,6 +105,12 @@ def train_model(continue_training: bool = False) -> None:
             K.clear_session()
             gc.collect()
 
-        model.save(os.path.join(paths['models'],
-                        f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{101}"),
+            model.save(os.path.join(paths['models'],
+                                    f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx}"),
                        save_format="tf")
+
+            prev_models_save_file = os.path.join(paths['models'],
+                                                 f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx - 1}")
+
+            if os.path.exists(prev_models_save_file):
+                shutil.rmtree(prev_models_save_file)

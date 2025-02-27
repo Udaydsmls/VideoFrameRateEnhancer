@@ -10,7 +10,7 @@ import os
 
 def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, input_frames_dir: str,
                     output_frames_dir: str, input_training_dataset_dir: str, output_training_dataset_dir: str,
-                    batch_size_percent: int, scale_factor: float) -> bool:
+                    batch_size_percent: int, scale_factor: float, create_training_dataset: bool = False) -> bool:
     video_paths = [os.path.join(vid_dir, file_name) for file_name in os.listdir(vid_dir)]
     """
     Processes, formats and stores the data in it required location.
@@ -31,8 +31,11 @@ def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, i
 
     ttd.process_image_directories(scale_down_frames_dir, input_frames_dir, output_frames_dir)
 
-    cd.preprocess_video_frames(input_frames_dir, output_frames_dir, input_training_dataset_dir,
-                               output_training_dataset_dir, batch_size_percent)
+    if create_training_dataset:
+        cd.preprocess_video_frames(input_frames_dir, output_frames_dir, input_training_dataset_dir,
+                                   output_training_dataset_dir, batch_size_percent)
+    else:
+        print("Skipping training dataset creation as per configuration.")
 
     mf.merge_subdirectories(input_frames_dir, output_frames_dir, scale_down_frames_dir)
 

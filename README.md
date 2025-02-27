@@ -12,7 +12,7 @@ The main objective of this program is to double the frame rate of any given inpu
 - **Multi-Step Pipeline:** Processes video files, generates frames, and enhances video quality.
 
 ## Prerequisites
-- Python 3.10
+- A Virtual Environment with Python 3.10 
 - All necessary dependencies listed in the project's `requirements.txt`
 - Correct directory structure and file paths as defined in `setup.json`
 
