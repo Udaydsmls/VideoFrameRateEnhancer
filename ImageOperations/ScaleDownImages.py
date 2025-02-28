@@ -1,3 +1,5 @@
+from tensorflow.keras import backend as K
+import gc
 import tensorflow as tf
 from pathlib import Path
 
@@ -19,7 +21,8 @@ def resize_image(input_path: Path, output_path: Path, scale_factor: float) -> No
     image_data = tf.io.read_file(str(input_path))
     img = tf.image.decode_image(image_data, channels=3)
 
-    new_size = tf.cast([tf.shape(img)[0] * scale_factor, tf.shape(img)[1] * scale_factor], tf.int32)
+    orig_size = tf.cast(tf.shape(img)[:2], tf.float32)
+    new_size = tf.cast(orig_size * scale_factor, tf.int32)
 
     img_resized = tf.image.resize(img, new_size, method=tf.image.ResizeMethod.LANCZOS3, antialias=True)
     img_resized = tf.cast(img_resized, tf.uint8)
@@ -61,3 +64,6 @@ def resize_images_in_subfolders(input_folder: str, output_folder: str, scale_fac
         if subfolder.is_dir():
             batch_resize_images(str(subfolder), str(output_folder / subfolder.name), scale_factor)
             print(f"{subfolder.name} resized.")
+
+            K.clear_session()
+            gc.collect()
