@@ -5,6 +5,8 @@ import shutil
 import cv2
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import backend as K
+import gc
 
 import ImageOperations.ConvertingData as cd
 import ImageOperations.ImageNormalization as im
@@ -67,10 +69,12 @@ def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> N
         if not frame_files:
             continue
 
-        first_frame = cd.load_and_preprocess_image(frame_files[0], img_height, img_width, num_channels, mean, std)
-        first_frame_name = os.path.splitext(os.path.basename(frame_files[0]))[0]
+        j = max(len(os.listdir(video_output_path)) - 1, 0)
 
-        for i in range(len(frame_files) - 1):
+        first_frame = cd.load_and_preprocess_image(frame_files[j], img_height, img_width, num_channels, mean, std)
+        first_frame_name = os.path.splitext(os.path.basename(frame_files[j]))[0]
+
+        for i in range(j, len(frame_files) - 1):
             second_frame = cd.load_and_preprocess_image(frame_files[i + 1], img_height, img_width, num_channels, mean,
                                                         std)
             predicted_frame = process_frame_pair(model, first_frame, second_frame, mean, std)
@@ -80,6 +84,9 @@ def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> N
 
             first_frame_name = os.path.splitext(os.path.basename(frame_files[i + 1]))[0]
             first_frame = second_frame
+
+            K.clear_session()
+            gc.collect()
 
     mf.merge_subdirectories(input_dir, output_dir, input_dir)
 
