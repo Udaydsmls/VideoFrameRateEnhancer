@@ -1,9 +1,11 @@
 
 # Video Frame Rate Enhancer Pipeline
 
-caption1 | caption2
-:-: | :-:
-<video src='https://github.com/Udaydsmls/VideoFrameRateEnhancer/blob/master/assets/30fps.mp4' width=180></video> | <video src='https://github.com/Udaydsmls/VideoFrameRateEnhancer/blob/master/assets/60fps.mp4' width=180><video
+
+
+https://github.com/user-attachments/assets/f8f5117b-76b9-4375-b722-87f0403a8e67
+
+
 
 ## Overview
 This project implements a terminal-based video enhancement pipeline that processes video files through several stages: data flow management, model training (or utilizing an existing model), frame generation, and video frame rate enhancement. It offers a user-friendly interface with clear instructions and options for training a new model or reusing an existing one.
