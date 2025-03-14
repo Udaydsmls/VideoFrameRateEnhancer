@@ -3,7 +3,7 @@
 
 caption1 | caption2
 :-: | :-:
-[Original Video](assets/30fps.mp4) [Enhanced Video](assets/60fps.mp4)
+[Original Video](assets/30fps.mp4) |   [Enhanced Video](assets/60fps.mp4)
 ## Overview
 This project implements a terminal-based video enhancement pipeline that processes video files through several stages: data flow management, model training (or utilizing an existing model), frame generation, and video frame rate enhancement. It offers a user-friendly interface with clear instructions and options for training a new model or reusing an existing one.
 
