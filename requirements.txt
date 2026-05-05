@@ -1,5 +1,4 @@
-opencv-python==4.11.0.86
-numpy==1.23.5
-tensorflow==2.10.1
-pillow==11.1.0
-scikit-learn==1.6.1
+opencv-python>=4.8
+numpy>=1.24
+torch>=2.1
+pytest>=7.4

@@ -1,116 +1,171 @@
-import os
-import gc
-import pickle
-import shutil
-import numpy as np
-import tensorflow as tf
-from sklearn.utils import shuffle
-from tensorflow.keras import backend as K
+from dataclasses import dataclass
+from pathlib import Path
 
-import CreatingModel.Model as ml
-import utilities.utils as utils
-import setup
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, random_split
 
-
-def configure_gpu_memory():
-    """Configures TensorFlow to prevent memory allocation issues."""
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if physical_devices:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-
-def check_dataset_dimensions() -> bool:
-    """
-    Checks if all dataset images have the same dimensions.
-    """
-    paths = setup.get_paths()
-    dataset_dims_path = paths['dataset_dimensions']
-
-    reference_dims = None
-
-    for file in os.listdir(dataset_dims_path):
-        with open(os.path.join(dataset_dims_path, file), 'rb') as f:
-            current_dims = pickle.load(f)
-
-        if reference_dims is None:
-            reference_dims = current_dims
-        elif current_dims != reference_dims:
-            print("Dataset image dimensions mismatch.")
-            return False
-
-    return True
+from CreatingModel import build_model
+from CreatingModel.Losses import L1SSIMLoss
+from ImageOperations.Dataset import FrameTripletDataset, build_triplets
+from utilities.Checkpoints import (
+    Checkpoint,
+    checkpoint_path,
+    find_latest_checkpoint,
+    load_checkpoint,
+    save_checkpoint,
+)
+from utilities.Config import Config
+from utilities.Devices import resolve_device
 
 
-def load_dataset_dimensions() -> tuple:
-    """Loads dataset dimensions from the first available file."""
-    paths = setup.get_paths()
-    dataset_dims_path = paths['dataset_dimensions']
-    file_list = os.listdir(dataset_dims_path)
-
-    if not file_list:
-        raise FileNotFoundError("No dataset dimension files found.")
-
-    with open(os.path.join(dataset_dims_path, file_list[0]), 'rb') as f:
-        return pickle.load(f)
+@dataclass
+class EpochMetrics:
+    epoch: int
+    train_loss: float
+    val_loss: float | None
 
 
-def train_model(continue_training: bool = False) -> None:
-    """
-    Trains the image translation model and saves it to the specified directory.
-    """
-    paths = setup.get_paths()
-    params = setup.get_model_params()
+class Trainer:
+    """Train a frame interpolator end to end."""
 
-    if not check_dataset_dimensions():
-        return
+    def __init__(self, config: Config, model_kwargs: dict | None = None) -> None:
+        self.config = config
+        self.device = resolve_device(config.device)
+        self.model: nn.Module = build_model(config.architecture, **(model_kwargs or {})).to(self.device)
+        self.criterion = L1SSIMLoss().to(self.device)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.learning_rate)
+        self._start_epoch = 0
 
-    img_height, img_width, num_channels = load_dataset_dimensions()
+    @classmethod
+    def from_checkpoint(
+        cls,
+        config: Config,
+        checkpoint: Path,
+        model_kwargs: dict | None = None,
+    ) -> "Trainer":
+        ckpt = load_checkpoint(checkpoint, map_location="cpu")
+        if ckpt.architecture != config.architecture:
+            raise ValueError(
+                f"Checkpoint architecture '{ckpt.architecture}' does not match "
+                f"config architecture '{config.architecture}'."
+            )
+        trainer = cls(config, model_kwargs=model_kwargs)
+        trainer.model.load_state_dict(ckpt.state_dict)
+        trainer._start_epoch = ckpt.epoch
+        return trainer
 
-    if not continue_training:
-        model = ml.create_image_translation_model(img_height, img_width, num_channels)
-        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    def fit(self) -> list[EpochMetrics]:
+        train_loader, val_loader = self._build_loaders()
+        history: list[EpochMetrics] = []
+        for offset in range(self.config.num_epochs):
+            epoch = self._start_epoch + offset + 1
+            train_loss = self._run_epoch(train_loader, train=True)
+            val_loss = self._run_epoch(val_loader, train=False) if val_loader else None
+            metrics = EpochMetrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss)
+            history.append(metrics)
+            self._log(metrics)
+            self._save(epoch)
+        return history
+
+    def _build_loaders(self) -> tuple[DataLoader, DataLoader | None]:
+        triplets = build_triplets(self.config.frames)
+        if not triplets:
+            raise RuntimeError(
+                f"No frame triplets found under {self.config.frames}. "
+                "Run the data flow first."
+            )
+        dataset = FrameTripletDataset(triplets, image_size=self.config.image_size)
+
+        val_size = int(round(len(dataset) * self.config.validation_split))
+        if val_size > 0 and len(dataset) - val_size > 0:
+            train_set, val_set = random_split(
+                dataset,
+                [len(dataset) - val_size, val_size],
+                generator=torch.Generator().manual_seed(42),
+            )
+        else:
+            train_set, val_set = dataset, None
+
+        train_loader = DataLoader(
+            train_set,
+            batch_size=self.config.batch_size,
+            shuffle=True,
+            num_workers=self.config.num_workers,
+            pin_memory=self.device.type == "cuda",
+            drop_last=True,
+        )
+        val_loader = (
+            DataLoader(
+                val_set,
+                batch_size=self.config.batch_size,
+                shuffle=False,
+                num_workers=self.config.num_workers,
+                pin_memory=self.device.type == "cuda",
+            )
+            if val_set is not None
+            else None
+        )
+        return train_loader, val_loader
+
+    def _run_epoch(self, loader: DataLoader | None, *, train: bool) -> float:
+        if loader is None:
+            return 0.0
+        self.model.train(train)
+        total = 0.0
+        count = 0
+        context = torch.enable_grad() if train else torch.no_grad()
+        with context:
+            for prev, nxt, mid in loader:
+                prev = prev.to(self.device, non_blocking=True)
+                nxt = nxt.to(self.device, non_blocking=True)
+                mid = mid.to(self.device, non_blocking=True)
+
+                pred = self.model(prev, nxt)
+                loss = self.criterion(pred, mid)
+
+                if train:
+                    self.optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    self.optimizer.step()
+
+                total += loss.item() * prev.shape[0]
+                count += prev.shape[0]
+        return total / max(count, 1)
+
+    def _save(self, epoch: int) -> None:
+        path = checkpoint_path(self.config.checkpoints, self.config.architecture, epoch)
+        save_checkpoint(
+            Checkpoint(
+                architecture=self.config.architecture,
+                state_dict=self.model.state_dict(),
+                epoch=epoch,
+                metadata={"learning_rate": self.config.learning_rate},
+            ),
+            path,
+        )
+
+    def _log(self, metrics: EpochMetrics) -> None:
+        if metrics.val_loss is None:
+            print(f"epoch {metrics.epoch:>4d} | train {metrics.train_loss:.4f}")
+        else:
+            print(
+                f"epoch {metrics.epoch:>4d} | train {metrics.train_loss:.4f} | "
+                f"val {metrics.val_loss:.4f}"
+            )
+
+
+def train_model(config: Config, *, resume: bool = False, model_kwargs: dict | None = None) -> list[EpochMetrics]:
+    """Convenience entry point that trains from scratch or resumes a checkpoint."""
+    config.ensure_directories()
+    if resume:
+        latest = find_latest_checkpoint(config.checkpoints, config.architecture)
+        if latest is None:
+            print("No checkpoint to resume from; starting fresh.")
+            trainer = Trainer(config, model_kwargs=model_kwargs)
+        else:
+            print(f"Resuming from {latest}")
+            trainer = Trainer.from_checkpoint(config, latest, model_kwargs=model_kwargs)
     else:
-        model_path = utils.load_latest_model()
-        model = tf.keras.models.load_model(model_path)
-
-    print(model.summary())
-
-    for dataset_idx, dataset in enumerate(os.listdir(paths['input_training_dataset'])):
-        input_path = os.path.join(paths['input_training_dataset'], dataset)
-        output_path = os.path.join(paths['output_training_dataset'], dataset)
-
-        train_files = sorted(
-            [os.path.join(input_path, f) for f in os.listdir(input_path) if f.endswith(".npz")]
-        )
-
-        test_files = sorted(
-            [os.path.join(output_path, f) for f in os.listdir(output_path) if f.endswith(".npz")]
-        )
-
-        for file_idx, (train_file, test_file) in enumerate(zip(train_files, test_files)):
-            train_data = np.load(train_file)["input"]
-            test_data = np.load(test_file)["output"]
-
-            X1, X2 = map(np.array, zip(*train_data))
-            Y = np.array(test_data)
-
-            min_size = min(len(X1), len(Y))
-            X1, X2, Y = X1[:min_size], X2[:min_size], Y[:min_size]
-
-            X1, X2, Y = shuffle(X1, X2, Y, random_state=42)
-
-            model.fit([X1, X2], Y, epochs=params['num_epochs'], batch_size=params['batch_size'],
-                      validation_split=params['validation_split'])
-
-            K.clear_session()
-            gc.collect()
-
-            model.save(os.path.join(paths['models'],
-                                    f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx}"),
-                       save_format="tf")
-
-            prev_models_save_file = os.path.join(paths['models'],
-                                                 f"image_translation_model_{img_height}_{img_width}_{num_channels}_ver_{dataset_idx}_{file_idx - 1}")
-
-            if os.path.exists(prev_models_save_file):
-                shutil.rmtree(prev_models_save_file)
+        trainer = Trainer(config, model_kwargs=model_kwargs)
+    return trainer.fit()

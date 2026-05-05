@@ -1,43 +1,51 @@
+from pathlib import Path
+
 import cv2
-import os
+
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 
 
-def save_video_frames(video_path: str, output_folder: str) -> None:
-    """
-    Extracts frames from a given video file and stores them in an output directory.
+def save_video_frames(video_path: Path, output_dir: Path, scale_factor: float = 1.0) -> int:
+    """Extract every frame from ``video_path`` into ``output_dir`` as JPEG."""
+    video_path = Path(video_path)
+    output_dir = Path(output_dir)
+    if not video_path.is_file():
+        raise FileNotFoundError(f"Video not found: {video_path}")
 
-    Each video will have its own subdirectory named after the video file (without extension),
-    where extracted frames will be saved as JPEG images.
+    output_dir.mkdir(parents=True, exist_ok=True)
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        raise FileNotFoundError(f"Could not open video: {video_path}")
 
-    :param video_path: Path to the input video file.
-    :param output_folder: Directory where extracted frames will be stored.
-    """
-    if not os.path.isfile(video_path):
-        print(f"Error: Video file '{video_path}' does not exist.")
-        return
+    name = video_path.stem
+    count = 0
+    try:
+        while True:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            if scale_factor != 1.0:
+                h, w = frame.shape[:2]
+                frame = cv2.resize(
+                    frame,
+                    (int(round(w * scale_factor)), int(round(h * scale_factor))),
+                    interpolation=cv2.INTER_LANCZOS4,
+                )
+            cv2.imwrite(str(output_dir / f"frame_{name}_{count:06d}.jpg"), frame)
+            count += 1
+    finally:
+        capture.release()
+    return count
 
-    os.makedirs(output_folder, exist_ok=True)
 
-    video_name = os.path.splitext(os.path.basename(video_path))[0]
-    video_output_dir = os.path.join(output_folder, video_name)
-    os.makedirs(video_output_dir, exist_ok=True)
+def extract_directory(videos_dir: Path, frames_dir: Path, scale_factor: float = 1.0) -> dict[str, int]:
+    """Extract frames for every video in ``videos_dir`` into per-video subfolders."""
+    videos_dir = Path(videos_dir)
+    frames_dir = Path(frames_dir)
+    if not videos_dir.is_dir():
+        return {}
 
-    video_capture = cv2.VideoCapture(video_path)
-    if not video_capture.isOpened():
-        print(f"Error: Could not open video '{video_path}'.")
-        return
-
-    frame_count = 0
-    while True:
-        success, frame = video_capture.read()
-        if not success:
-            break
-
-        frame_filename = f"frame_{video_name}_{frame_count:06d}.jpg"
-        frame_path = os.path.join(video_output_dir, frame_filename)
-        cv2.imwrite(frame_path, frame)
-
-        frame_count += 1
-
-    video_capture.release()
-    print(f"Extraction completed: {frame_count} frames saved in '{video_output_dir}'.")
+    counts: dict[str, int] = {}
+    for video in sorted(p for p in videos_dir.iterdir() if p.suffix.lower() in VIDEO_EXTENSIONS):
+        counts[video.stem] = save_video_frames(video, frames_dir / video.stem, scale_factor)
+    return counts

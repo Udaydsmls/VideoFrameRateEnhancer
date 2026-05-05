@@ -1,45 +1,19 @@
-import shutil
+from pathlib import Path
 
-import VideoOperations.ExtractingFrames as ef
-import ImageOperations.ScaleDownImages as sd
-import ImageOperations.ConvertingData as cd
-import FolderOperations.MovingBackFiles as mf
-import FolderOperations.SeparateData as ttd
-import os
+from VideoOperations.ExtractingFrames import extract_directory
 
 
-def start_data_flow(vid_dir: str, frames_dir: str, scale_down_frames_dir: str, input_frames_dir: str,
-                    output_frames_dir: str, input_training_dataset_dir: str, output_training_dataset_dir: str,
-                    batch_size_percent: int, scale_factor: float, create_training_dataset: bool = False) -> bool:
-    video_paths = [os.path.join(vid_dir, file_name) for file_name in os.listdir(vid_dir)]
-    """
-    Processes, formats and stores the data in it required location.
-    """
-
-    if len(video_paths) == 0:
-        print("No video files found!!")
-        print("Put the video files into your vid_dir folder from setup.json")
-        print("Exiting...")
-        return False
-
-    for video in video_paths:
-        ef.save_video_frames(video, frames_dir)
-
-    sd.resize_images_in_subfolders(frames_dir, scale_down_frames_dir, scale_factor)
-
-    shutil.rmtree(frames_dir)
-
-    ttd.process_image_directories(scale_down_frames_dir, input_frames_dir, output_frames_dir)
-
-    if create_training_dataset:
-        cd.preprocess_video_frames(input_frames_dir, output_frames_dir, input_training_dataset_dir,
-                                   output_training_dataset_dir, batch_size_percent)
-    else:
-        print("Skipping training dataset creation as per configuration.")
-
-    mf.merge_subdirectories(input_frames_dir, output_frames_dir, scale_down_frames_dir)
-
-    shutil.rmtree(input_frames_dir)
-    shutil.rmtree(output_frames_dir)
-
-    return True
+def start_data_flow(videos_dir: Path, frames_dir: Path, scale_factor: float = 1.0) -> dict[str, int]:
+    """Extract frames from every video into per-video subfolders of ``frames_dir``."""
+    videos_dir = Path(videos_dir)
+    frames_dir = Path(frames_dir)
+    if not videos_dir.is_dir() or not any(videos_dir.iterdir()):
+        print(f"No videos found in '{videos_dir}'. Skipping extraction.")
+        return {}
+    counts = extract_directory(videos_dir, frames_dir, scale_factor=scale_factor)
+    if not counts:
+        print(f"No supported video files found in '{videos_dir}'.")
+        return counts
+    for name, n in counts.items():
+        print(f"  {name}: {n} frames")
+    return counts

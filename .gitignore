@@ -1,6 +1,21 @@
+# Project data
+/data/
+/data1/
+/data2/
 /Models/
 /Data/
 /old_files/
-/.idea/
-/data1/
 /backup/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Editors
+/.idea/
+/.vscode/
+/.claude/

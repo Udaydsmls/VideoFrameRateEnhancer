@@ -1,98 +1,79 @@
-import tensorflow as tf
-from tensorflow.keras import layers, Model
+import math
+
+import torch
+from torch import nn
+from torch.nn import functional as F
 
 
-def get_encoder(input_shape, latent_channels):
-    """
-    Encoder: maps concatenated input frames to a latent space.
-    """
-    inputs = layers.Input(shape=input_shape)
-    x = layers.Conv2D(64, 3, strides=2, padding='same', activation='relu')(inputs)
-    x = layers.Conv2D(128, 3, strides=2, padding='same', activation='relu')(x)
-    x = layers.Conv2D(latent_channels, 3, strides=2, padding='same', activation='relu')(x)
-    return Model(inputs, x, name="encoder")
+def sinusoidal_embedding(t: torch.Tensor, dim: int) -> torch.Tensor:
+    """Sinusoidal time embedding used to condition on a noise level."""
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(10000.0) * torch.arange(half, device=t.device, dtype=t.dtype) / max(half - 1, 1)
+    )
+    args = t.view(-1, 1) * freqs.view(1, -1)
+    return torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
 
 
-def get_decoder(latent_shape, output_channels, img_height, img_width):
-    """
-    Decoder: reconstructs an image from the latent space.
-    """
-    latent_inputs = layers.Input(shape=latent_shape)
-    x = layers.Conv2DTranspose(128, 3, strides=2, padding='same', activation='relu')(latent_inputs)
-    x = layers.Conv2DTranspose(64, 3, strides=2, padding='same', activation='relu')(x)
-    x = layers.Conv2DTranspose(output_channels, 3, strides=2, padding='same', activation='tanh')(x)
-    output = layers.Cropping2D(cropping=((x.shape[1] - img_height, 0), (x.shape[2] - img_width, 0)))(x)
-    return Model(latent_inputs, output, name="decoder")
+class _ResBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, time_dim: int) -> None:
+        super().__init__()
+        self.norm1 = nn.GroupNorm(8, in_channels)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
+        self.time = nn.Linear(time_dim, out_channels)
+        self.norm2 = nn.GroupNorm(8, out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
+        self.skip = (
+            nn.Identity() if in_channels == out_channels
+            else nn.Conv2d(in_channels, out_channels, 1)
+        )
+
+    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
+        h = self.conv1(F.silu(self.norm1(x)))
+        h = h + self.time(F.silu(t_emb)).unsqueeze(-1).unsqueeze(-1)
+        h = self.conv2(F.silu(self.norm2(h)))
+        return h + self.skip(x)
 
 
-def get_unet_block(input_shape, base_filters):
-    """
-    UNet-like block that performs denoising in latent space.
-    Adjusted to ensure that concatenated tensors have matching spatial dimensions.
-    """
-    inputs = layers.Input(shape=input_shape)
+class DiffusionInterpolator(nn.Module):
+    """Single-pass conditional denoiser conditioned on a scalar noise level."""
 
-    d1 = layers.Conv2D(base_filters, 3, strides=2, padding='same', activation='relu')(
-        inputs)
-    d2 = layers.Conv2D(base_filters * 2, 3, strides=2, padding='same', activation='relu')(
-        d1)
+    def __init__(self, base_channels: int = 64, num_channels: int = 3, time_dim: int = 128) -> None:
+        super().__init__()
+        c = base_channels
+        self.time_dim = time_dim
+        self.time_mlp = nn.Sequential(
+            nn.Linear(time_dim, time_dim * 4),
+            nn.SiLU(),
+            nn.Linear(time_dim * 4, time_dim),
+        )
+        self.in_conv = nn.Conv2d(2 * num_channels, c, 3, padding=1)
+        self.down1 = _ResBlock(c, c * 2, time_dim)
+        self.down2 = _ResBlock(c * 2, c * 4, time_dim)
+        self.mid = _ResBlock(c * 4, c * 4, time_dim)
+        self.up2 = _ResBlock(c * 4 + c * 4, c * 2, time_dim)
+        self.up1 = _ResBlock(c * 2 + c * 2, c, time_dim)
+        self.out = nn.Sequential(
+            nn.GroupNorm(8, c),
+            nn.SiLU(),
+            nn.Conv2d(c, num_channels, 3, padding=1),
+        )
 
-    b = layers.Conv2D(base_filters * 4, 3, padding='same', activation='relu')(d2)  # (9, 15, base_filters*4)
+    def forward(
+        self,
+        frame1: torch.Tensor,
+        frame2: torch.Tensor,
+        noise_level: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        batch = frame1.shape[0]
+        if noise_level is None:
+            noise_level = torch.zeros(batch, device=frame1.device, dtype=frame1.dtype)
+        t_emb = self.time_mlp(sinusoidal_embedding(noise_level, self.time_dim))
 
-    u1 = layers.Concatenate()([b, d2])
-
-    u2 = layers.Conv2DTranspose(base_filters * 2, 3, strides=2, padding='same', activation='relu')(u1)
-
-    u2 = layers.Cropping2D(cropping=((u2.shape[1] - d1.shape[1], 0), (u2.shape[2] - d1.shape[2], 0)))(u2)
-    u2 = layers.Concatenate()([u2, d1])
-
-    u3 = layers.Conv2DTranspose(input_shape[-1], 3, strides=2, padding='same', activation='relu')(u2)
-
-    u3 = layers.Cropping2D(cropping=((u3.shape[1] - input_shape[0], 0), (u3.shape[2] - input_shape[1], 0)))(u3)
-    outputs = layers.Add()([u3, inputs])
-
-    return Model(inputs, outputs, name="unet_block")
-
-
-def create_diffusion_frame_interpolation_model(img_height, img_width, num_channels, latent_channels=256):
-    """
-    This model takes two input frames and a noise level value (to be used in a full diffusion process)
-    and produces an interpolated frame.
-
-    The pipeline is as follows:
-      1. Concatenate the two frames and encode into a latent space.
-      2. Inject a noise level signal into the latent representation.
-      3. Pass through a UNet-style block to denoise/refine the latent code.
-      4. Decode the latent representation back to image space.
-
-    In practice, one would train this model as part of an iterative diffusion process.
-    """
-
-    frame1 = layers.Input(shape=(img_height, img_width, num_channels), name="frame1")
-    frame2 = layers.Input(shape=(img_height, img_width, num_channels), name="frame2")
-    noise_level = layers.Input(shape=(1,), name="noise_level")
-
-    merged_frames = layers.Concatenate(axis=-1)([frame1, frame2])
-
-    encoder = get_encoder(merged_frames.shape[1:], latent_channels)
-    latent = encoder(merged_frames)
-
-    latent_shape = encoder.output_shape[1:]  # (H, W, latent_channels)
-    flat_dim = latent_shape[0] * latent_shape[1] * latent_shape[2]
-    noise_proj = layers.Dense(flat_dim, activation='relu')(noise_level)
-    noise_proj = layers.Reshape(latent_shape)(noise_proj)
-
-    latent = layers.Add()([latent, noise_proj])
-
-    unet = get_unet_block(latent_shape, base_filters=latent_channels // 8)
-    latent_denoised = unet(latent)
-
-    decoder = get_decoder(latent_denoised.shape[1:], num_channels, img_height, img_width)
-    interpolated_frame = decoder(latent_denoised)
-
-    return Model(inputs=[frame1, frame2, noise_level], outputs=interpolated_frame, name="DiffusionFrameInterpolation")
-
-
-if __name__ == '__main__':
-    model = create_diffusion_frame_interpolation_model(img_height=270, img_width=480, num_channels=3)
-    model.summary()
+        x = self.in_conv(torch.cat([frame1, frame2], dim=1))
+        d1 = self.down1(F.avg_pool2d(x, 2), t_emb)
+        d2 = self.down2(F.avg_pool2d(d1, 2), t_emb)
+        m = self.mid(d2, t_emb)
+        u2 = self.up2(torch.cat([F.interpolate(m, size=d1.shape[-2:], mode="nearest"), d1], dim=1), t_emb)
+        u1 = self.up1(torch.cat([F.interpolate(u2, size=x.shape[-2:], mode="nearest"), x], dim=1), t_emb)
+        return torch.sigmoid(self.out(u1))

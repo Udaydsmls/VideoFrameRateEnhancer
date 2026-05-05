@@ -1,115 +1,137 @@
 import sys
-import FolderOperations.DataFlow as df
-import CreatingModel.TrainingModel as tm
-import ImageOperations.GenerateFrames as gen
-import utilities.utils as utils
-import VideoOperations.InterpolatedImages as ii
-import setup
+from pathlib import Path
+
+from CreatingModel import available_architectures
+from CreatingModel.TrainingModel import train_model
+from FolderOperations.DataFlow import start_data_flow
+from ImageOperations.GenerateFrames import generate_video_frames
+from VideoOperations.EnhanceVideos import enhance_videos_frame_rate
+from utilities.Checkpoints import find_latest_checkpoint
+from utilities.Config import load_config
 
 
-def main():
-    """ Running the Program."""
-    print("=" * 80)
-    print("Welcome to the Video Enhancement Pipeline!")
-    print("=" * 80)
-    print("\nBefore you begin, if you want to change any file paths, please update them in setup.json.")
-    input("If everything is correct, just press Enter to continue...")
-
-    setup.setup()
-    paths = setup.get_paths()
-    values = setup.get_values()
-
-    vid_dir = paths["vid_dir"]
-    frames_dir = paths["frames_dir"]
-    intermediate_frames_dir = paths["intermediate_frames_dir"]
-    scale_down_frames_dir = paths["scale_down_frames_dir"]
-    input_train_frames_dir = paths["input_train_frames_dir"]
-    output_train_frames_dir = paths["output_train_frames_dir"]
-    input_training_dataset = paths["input_training_dataset"]
-    output_training_dataset = paths["output_training_dataset"]
-    enhanced_videos = paths["enhanced_videos"]
-
-    batch_size = values["batch_size"]
-    scale_down_factor = values["scale_down_factor"]
-
+def _ask_yes_no(prompt: str) -> bool:
     while True:
-        do_dataflow = input("\nDo you want to run the data flow? (y/n): ").strip().lower()
-        if do_dataflow in ("y", "yes", "n", "no"):
-            break
-        print("Invalid input. Please enter 'y' or 'n'.")
-    if do_dataflow in ("y", "yes"):
-        print("\n[1/4] Starting Data Flow...")
+        answer = input(prompt).strip().lower()
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no"):
+            return False
+        print("Please enter 'y' or 'n'.")
 
-        while True:
-            create_training = input("Do you want to create a training dataset? (y/n): ").strip().lower()
-            if create_training in ("y", "yes", "n", "no"):
-                break
-            print("Invalid input. Please enter 'y' or 'n'.")
-        create_training_flag = create_training in ("y", "yes")
 
-        success = df.start_data_flow(
-            vid_dir, frames_dir, scale_down_frames_dir,
-            input_train_frames_dir, output_train_frames_dir,
-            input_training_dataset, output_training_dataset,
-            batch_size, scale_down_factor, create_training_dataset=create_training_flag
-        )
-        if not success:
-            sys.exit("Data flow failed. Exiting.")
-        print("Data flow completed successfully.")
+def _ask_choice(prompt: str, options: list[str]) -> int:
+    print(prompt)
+    for i, option in enumerate(options, start=1):
+        print(f"  {i}. {option}")
+    while True:
+        answer = input("Enter your choice: ").strip()
+        if answer.isdigit() and 1 <= int(answer) <= len(options):
+            return int(answer)
+        print(f"Please enter a number from 1 to {len(options)}.")
+
+
+def _ask_architecture(default: str) -> str:
+    options = available_architectures()
+    print(f"Available architectures: {', '.join(options)}")
+    while True:
+        answer = input(f"Architecture [{default}]: ").strip().lower()
+        if not answer:
+            return default
+        if answer in options:
+            return answer
+        print(f"Unknown architecture. Choose one of: {', '.join(options)}")
+
+
+def main() -> int:
+    print("=" * 80)
+    print("Welcome to the Video Frame Rate Enhancer.")
+    print("=" * 80)
+    print("\nIf you need to change paths or hyperparameters, edit setup.json first.")
+    input("Press Enter to continue...")
+
+    config = load_config()
+    config.architecture = _ask_architecture(config.architecture)
+    config.ensure_directories()
+
+    if _ask_yes_no("\nDo you want to run the data flow (extract frames)? (y/n): "):
+        print("\n[1/4] Extracting frames...")
+        start_data_flow(config.videos, config.frames, scale_factor=config.scale_factor)
     else:
-        print("Skipping data flow as per user selection.")
+        print("Skipping data flow.")
 
-    model_path = ""
-
+    checkpoint_override: Path | None = None
     while True:
-        print("\nWould you like to:")
-        print("  1. Train a new model")
-        print("  2. Use the existing model")
-        print("  3. Give path to an existing model")
-        print("  4. Train a new model and exit")
-        print("  5. Continue Training on previous model")
-        choice = input("Enter your choice: ").strip()
-        if choice == "1":
-            print("\n[2/4] Training the Model...")
-            tm.train_model()
+        choice = _ask_choice(
+            "\n[2/4] Model:",
+            [
+                "Train a new model",
+                "Use the latest checkpoint",
+                "Provide a path to a checkpoint",
+                "Train a new model and exit",
+                "Continue training the latest checkpoint",
+            ],
+        )
+        if choice == 1:
+            print("Training a new model...")
+            train_model(config, resume=False)
             break
-        elif choice == "2":
-            print("\nSkipping model training. Using the existing model.")
+        if choice == 2:
+            print("Using the latest checkpoint.")
             break
-        elif choice == "3":
-            print("\nSkipping model training. Give path to an existing model.")
-            model_path = input("Enter absolute path to an existing model: ")
+        if choice == 3:
+            entered = input("Enter absolute path to a checkpoint: ").strip()
+            if entered:
+                checkpoint_override = Path(entered)
+                break
+            print("No path provided, please try again.")
+            continue
+        if choice == 4:
+            print("Training a new model...")
+            train_model(config, resume=False)
+            print("Exiting after training.")
+            return 0
+        if choice == 5:
+            print("Continuing training the latest checkpoint...")
+            train_model(config, resume=True)
             break
-        elif choice == "4":
-            print("\n[2/4] Training the Model...")
-            tm.train_model()
-            print("\nExiting...")
-            return
-        elif choice == "5":
-            print("\n[2/4] Continue training the Model...")
-            tm.train_model(True)
-            break
-        else:
-            print("Invalid input. Please enter a number from 1 to 5.")
 
-    print("\n[3/4] Loading the Model...")
-    if model_path == "":
-        model_path = utils.load_latest_model()
-    if not model_path:
-        print("No model found. Exiting.")
-        sys.exit(1)
-    print(f"Model loaded successfully: {model_path}")
+    if checkpoint_override is None:
+        latest = find_latest_checkpoint(config.checkpoints, config.architecture)
+        if latest is None:
+            print(f"No checkpoint found for '{config.architecture}'. Exiting.")
+            return 1
+        print(f"Using checkpoint: {latest}")
+        checkpoint_override = latest
 
-    print("\n[4/4] Generating Video Frames...")
-    gen.generate_video_frames(scale_down_frames_dir, model_path, intermediate_frames_dir)
-    print("Video frames generated successfully.")
+    print("\n[3/4] Generating intermediate frames...")
+    counts = generate_video_frames(
+        frames_dir=config.frames,
+        interpolated_frames_dir=config.interpolated_frames,
+        architecture=config.architecture,
+        checkpoints_dir=config.checkpoints,
+        checkpoint=checkpoint_override,
+        device=config.device,
+    )
+    if not counts:
+        print("No videos to interpolate; check your frames directory.")
+        return 1
+    for name, n in counts.items():
+        print(f"  {name}: {n} interpolated frames")
 
-    print("\nEnhancing video frame rate...")
-    ii.enhance_videos_frame_rate(scale_down_frames_dir, enhanced_videos)
-    print("Video enhancement completed successfully.")
+    print("\n[4/4] Assembling enhanced videos...")
+    outputs = enhance_videos_frame_rate(
+        config.interpolated_frames, config.enhanced_videos, config.videos
+    )
+    if not outputs:
+        print("No matching source videos found; nothing was assembled.")
+        return 1
+    for name, path in outputs.items():
+        print(f"  {name} -> {path}")
 
-    print("\nAll operations completed successfully!")
+    print("\nAll operations completed successfully.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,93 +1,81 @@
-import os
-import glob
 import shutil
+from pathlib import Path
 
 import cv2
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras import backend as K
-import gc
+import torch
+from torch import nn
 
-import ImageOperations.ConvertingData as cd
-import ImageOperations.ImageNormalization as im
-import FolderOperations.MovingBackFiles as mf
-import utilities.utils as utils
+from ImageOperations.Dataset import IMAGE_EXTENSIONS, from_tensor, list_frames, load_image, to_tensor
+from utilities.Checkpoints import find_latest_checkpoint, load_checkpoint
+from utilities.Devices import resolve_device
+from CreatingModel import build_model
 
 
-def calculate_frames_mean_std(input_dir: str) -> tuple:
-    """Calculates mean and standard deviation of the given frames"""
-    all_image_paths = []
-
-    for frame_folder in os.listdir(input_dir):
-        source_path = os.path.join(input_dir, frame_folder)
-        all_image_paths.extend(glob.glob(os.path.join(source_path, '*.jpg')))
-
-    mean, std = im.compute_dataset_mean_std(all_image_paths)
-
-    return mean, std
+@torch.no_grad()
+def _interpolate_pair(model: nn.Module, prev: torch.Tensor, nxt: torch.Tensor, device: torch.device) -> torch.Tensor:
+    return model(prev.unsqueeze(0).to(device), nxt.unsqueeze(0).to(device))[0].cpu()
 
 
-def process_frame_pair(model: tf.keras.models.Model, first_frame: np.ndarray, second_frame: np.ndarray,
-                       mean: np.ndarray, std: np.ndarray) -> np.ndarray:
-    """
-    Generates a predicted frame using the model and denormalizes it.
-    """
-    first_frame = first_frame.reshape(1, *first_frame.shape)
-    second_frame = second_frame.reshape(1, *second_frame.shape)
+def _interpolate_video_dir(model: nn.Module, source_dir: Path, output_dir: Path, device: torch.device) -> int:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    frames = list_frames(source_dir)
+    if len(frames) < 2:
+        return 0
 
-    prediction = model.predict([first_frame, second_frame])[0]
-    prediction_denormalized = im.denormalize_image(prediction, mean, std)
-    np.clip(prediction_denormalized, 0, 1, out=prediction_denormalized)
+    prev_path = frames[0]
+    prev_tensor = to_tensor(load_image(prev_path))
+    shutil.copy2(prev_path, output_dir / prev_path.name)
 
-    return (prediction_denormalized * 255).astype(np.uint8)
-
-
-def generate_video_frames(input_dir: str, model_path: str, output_dir: str) -> None:
-    """
-    Generates frames using a trained model and saves them to the output directory.
-
-    :param input_dir: Directory containing input video frames.
-    :param model_path: Path to the trained model.
-    :param output_dir: Directory to save generated frames.
-    """
-
-    model = tf.keras.models.load_model(model_path)
-    mean, std = utils.load_mean_std_file()
-
-    for video_folder in os.listdir(input_dir):
-        video_input_path = os.path.join(input_dir, video_folder)
-        video_output_path = os.path.join(output_dir, video_folder)
-
-        os.makedirs(video_output_path, exist_ok=True)
-
-        frame_files = sorted(
-            [os.path.join(video_input_path, fname) for fname in os.listdir(video_input_path) if fname.endswith(".jpg")]
+    written = 0
+    for current_path in frames[1:]:
+        current_tensor = to_tensor(load_image(current_path))
+        interpolated = _interpolate_pair(model, prev_tensor, current_tensor, device)
+        cv2.imwrite(
+            str(output_dir / f"{prev_path.stem}_interp.jpg"),
+            cv2.cvtColor(from_tensor(interpolated), cv2.COLOR_RGB2BGR),
         )
+        shutil.copy2(current_path, output_dir / current_path.name)
+        prev_tensor = current_tensor
+        prev_path = current_path
+        written += 1
+    return written
 
-        img_height, img_width, num_channels = cv2.imread(frame_files[0]).shape
 
-        if not frame_files:
-            continue
+def generate_video_frames(
+    frames_dir: Path,
+    interpolated_frames_dir: Path,
+    architecture: str,
+    checkpoints_dir: Path,
+    *,
+    checkpoint: Path | None = None,
+    device: str = "auto",
+    model_kwargs: dict | None = None,
+) -> dict[str, int]:
+    """Run a trained interpolator over every video subfolder of ``frames_dir``."""
+    frames_dir = Path(frames_dir)
+    interpolated_frames_dir = Path(interpolated_frames_dir)
+    torch_device = resolve_device(device)
 
-        j = max(len(os.listdir(video_output_path)) - 1, 0)
+    if checkpoint is None:
+        checkpoint_path = find_latest_checkpoint(checkpoints_dir, architecture)
+        if checkpoint_path is None:
+            raise FileNotFoundError(
+                f"No '{architecture}' checkpoint under {checkpoints_dir}."
+            )
+    else:
+        checkpoint_path = Path(checkpoint)
 
-        first_frame = cd.load_and_preprocess_image(frame_files[j], img_height, img_width, num_channels, mean, std)
-        first_frame_name = os.path.splitext(os.path.basename(frame_files[j]))[0]
+    ckpt = load_checkpoint(checkpoint_path, map_location=torch_device)
+    if ckpt.architecture != architecture:
+        raise ValueError(
+            f"Checkpoint architecture '{ckpt.architecture}' does not match '{architecture}'."
+        )
+    model = build_model(architecture, **(model_kwargs or {}))
+    model.load_state_dict(ckpt.state_dict)
+    model.eval().to(torch_device)
 
-        for i in range(j, len(frame_files) - 1):
-            second_frame = cd.load_and_preprocess_image(frame_files[i + 1], img_height, img_width, num_channels, mean,
-                                                        std)
-            predicted_frame = process_frame_pair(model, first_frame, second_frame, mean, std)
-
-            output_filename = os.path.join(video_output_path, f"{first_frame_name}_5.jpg")
-            tf.io.write_file(output_filename, tf.image.encode_jpeg(predicted_frame))
-
-            first_frame_name = os.path.splitext(os.path.basename(frame_files[i + 1]))[0]
-            first_frame = second_frame
-
-            K.clear_session()
-            gc.collect()
-
-    mf.merge_subdirectories(input_dir, output_dir, input_dir)
-
-    shutil.rmtree(output_dir)
+    counts: dict[str, int] = {}
+    for video_dir in sorted(p for p in frames_dir.iterdir() if p.is_dir()):
+        target = interpolated_frames_dir / video_dir.name
+        counts[video_dir.name] = _interpolate_video_dir(model, video_dir, target, torch_device)
+    return counts

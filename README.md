@@ -1,86 +1,126 @@
+# Video Frame Rate Enhancer
 
-# Video Frame Rate Enhancer Pipeline
+A learned frame-interpolation pipeline that doubles the frame rate of any
+input video. Given two consecutive frames, the model predicts the frame
+that lies between them; inserting that prediction between every original
+pair yields a smoother output at twice the source FPS.
 
-Original Video | Enhanced Video
-:-: | :-:
-[Link 30fps](assets/30fps.mp4) |   [Link 60fps](assets/60fps.mp4)
-## Overview
-This project implements a terminal-based video enhancement pipeline that processes video files through several stages: data flow management, model training (or utilizing an existing model), frame generation, and video frame rate enhancement. It offers a user-friendly interface with clear instructions and options for training a new model or reusing an existing one.
+The project is written in PyTorch and ships four interchangeable
+architectures so the same pipeline can compare baselines against more
+recent designs.
 
-The main objective of this program is to double the frame rate of any given input video.
-## Features
-- **User-Friendly Terminal UI:** Guides you through the setup and process.
-- **Configurable Paths:** Easily update file paths via `setup.json`.
-- **Flexible Model Options:** Choose to train a new model or use the latest available model.
-- **Multi-Step Pipeline:** Processes video files, generates frames, and enhances video quality.
+| Original 30 fps | Enhanced 60 fps |
+| :-: | :-: |
+| [assets/30fps.mp4](assets/30fps.mp4) | [assets/60fps.mp4](assets/60fps.mp4) |
 
-## Prerequisites
-- A Virtual Environment with Python 3.10 
-- All necessary dependencies listed in the project's `requirements.txt`
-- Correct directory structure and file paths as defined in `setup.json`
+## Architectures
+
+All architectures share the same forward signature
+``model(frame_prev, frame_next) -> frame_mid`` and are selected by name
+in `setup.json` or interactively when running the pipeline.
+
+| Name          | Notes |
+| ------------- | ----- |
+| `unet`        | U-Net with skip connections. Strong baseline, fast to train. |
+| `diffusion`   | Conditional latent denoiser with sinusoidal time conditioning, single-pass. |
+| `transformer` | Patch-token ViT with a convolutional skip path for high-frequency detail. |
+| `mamba`       | Bidirectional selective state-space (Mamba-style) tokens, pure PyTorch. |
+
+## Project layout
+
+```
+CreatingModel/
+    UNetModel.py
+    DiffusionModel.py
+    TransformerModel.py
+    MambaModel.py
+    Losses.py
+    TrainingModel.py
+FolderOperations/
+    DataFlow.py
+ImageOperations/
+    Dataset.py
+    ScaleDownImages.py
+    GenerateFrames.py
+VideoOperations/
+    ExtractingFrames.py
+    AssembleVideo.py
+    EnhanceVideos.py
+utilities/
+    Config.py
+    Checkpoints.py
+    Devices.py
+Test/
+    pytest suite
+main.py
+setup.json
+requirements.txt
+```
 
 ## Installation
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/Udaydsmls/VideoFrameRateEnhancer.git
-   ```
-2. **Navigate to the Project Directory:**
-   ```bash
-   cd VideoFrameRateEnhancer
-   ```
-3. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+
+Python 3.10 or newer is recommended.
+
+```bash
+git clone https://github.com/Udaydsmls/VideoFrameRateEnhancer.git
+cd VideoFrameRateEnhancer
+python -m venv .venv
+source .venv/bin/activate          # PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+For CUDA acceleration, install the matching PyTorch build from
+[pytorch.org](https://pytorch.org/get-started/locally/) before
+installing the rest of the requirements.
 
 ## Configuration
-Before running the pipeline, check the `setup.json` file to ensure all file paths are correct:
-- `root`
-- `metadata`
-- `vid_dir`
-- `frames_dir`
-- `intermediate_frames_dir`
-- `scale_down_frames_dir`
-- `input_train_frames_dir`
-- `output_train_frames_dir`
-- `input_training_dataset`
-- `output_training_dataset`
-- `mean_std_file`
-- `enhanced_videos`
 
-If no changes are needed, simply press Enter when prompted at the start of the execution.
+`setup.json` controls every path and hyperparameter:
+
+| Field | Purpose |
+| ----- | ------- |
+| `absolute_path` | Optional base directory; defaults to the repo root. |
+| `root_dir` | Working directory created under `absolute_path`. |
+| `videos_dir` | Input videos. |
+| `frames_dir` | Extracted frames, one subdirectory per video. |
+| `interpolated_frames_dir` | Frames produced at inference. |
+| `enhanced_videos_dir` | Final 2x-fps videos. |
+| `checkpoints_dir` | Saved model weights. |
+| `architecture` | One of `unet`, `diffusion`, `transformer`, `mamba`. |
+| `scale_factor` | Resize factor applied during extraction. `1.0` keeps source resolution. |
+| `image_size` | Optional `[height, width]` override applied during training. |
+| `num_epochs`, `batch_size`, `learning_rate`, `validation_split` | Training hyperparameters. |
+| `num_workers` | DataLoader worker count. |
+| `device` | `auto`, `cpu`, `cuda`, or `mps`. |
 
 ## Usage
-Run the main script from your terminal:
+
+Place your videos in `<root>/videos`, then run:
+
 ```bash
 python main.py
 ```
-During execution, you'll see:
-- A welcome message with instructions on checking/updating `setup.json`.
-- A prompt to choose whether to train a new model or use an existing one.
-- Step-by-step status messages indicating the progress of data flow, model training, frame generation, and video enhancement.
 
-## Pipeline Workflow
-1. **Data Flow Initialization:**  
-   The pipeline begins by processing video files and preparing frames for further operations.
-   
-2. **Model Training Option:**  
-   - **Train a New Model:** If you choose to train a new model, the script will initiate the training process.
-   - **Use Existing Model:** Alternatively, you can opt to skip training and use the most recently saved model.
-   
-3. **Frame Generation:**  
-   The script generates video frames using the specified or trained model.
-   
-4. **Video Frame Rate Enhancement:**  
-   Finally, the video frame rate is enhanced to produce smoother video output.
+The script walks through the pipeline interactively:
 
-## Modules Overview
-- **FolderOperations.DataFlow:** Handles data ingestion and processing of video files.
-- **CreatingModel.TrainingModel:** Manages the training process for new models.
-- **ImageOperations.GenerateFrames:** Generates video frames from the processed data.
-- **utilities.utils:** Contains utility functions, including model loading.
-- **VideoOperations.InterpolatedImages:** Enhances video quality by increasing the frame rate.
-- **setup:** Loads configuration parameters from `setup.json`.
+1. Pick the architecture (defaults to whatever is set in `setup.json`).
+2. Optionally extract frames from the videos.
+3. Choose between training a new model, using the latest checkpoint,
+   loading a checkpoint by path, training and exiting, or continuing
+   from the latest checkpoint.
+4. Generate intermediate frames with the chosen model.
+5. Encode every video at twice its source frame rate.
+
+## Tests
+
+```bash
+pytest Test
+```
+
+The suite covers configuration loading, frame extraction, the dataset,
+video assembly, every architecture and a short end-to-end training
+plus inference run on synthetic data.
 
 ## License
-This project is licensed under the [MIT License](LICENSE).
+
+Released under the [MIT License](LICENSE).

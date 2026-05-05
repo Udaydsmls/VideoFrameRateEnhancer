@@ -1,46 +1,37 @@
-import unittest
-import os
+from pathlib import Path
+
 import cv2
-import tempfile
-import numpy as np
-from VideoOperations import ExtractingFrames as ef
+import pytest
+
+from VideoOperations.ExtractingFrames import extract_directory, save_video_frames
 
 
-class TestExtractFrames(unittest.TestCase):
-    def setUp(self):
-        # Create a temporary directory
-        self.test_dir = tempfile.TemporaryDirectory()
-        self.video_path = os.path.join(self.test_dir.name, "test_video.mp4")
-        self.output_folder = os.path.join(self.test_dir.name, "output")
-
-        # Create a dummy video file
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        fps = 10
-        frame_size = (640, 480)
-        out = cv2.VideoWriter(self.video_path, fourcc, fps, frame_size)
-
-        # Write a few frames
-        for _ in range(5):
-            frame = np.random.randint(0, 256, (480, 640, 3), dtype=np.uint8)
-            out.write(frame)
-        out.release()
-
-    def tearDown(self):
-        # Cleanup the temporary directory
-        self.test_dir.cleanup()
-
-    def test_extract_frames(self):
-        ef.save_video_frames(self.video_path, self.output_folder)
-
-        # Check if output directory is created
-        video_name = "test_video"
-        video_output_path = os.path.join(self.output_folder, video_name)
-        self.assertTrue(os.path.exists(video_output_path))
-
-        # Check if frames are extracted
-        frame_files = [f for f in os.listdir(video_output_path) if f.endswith('.jpg')]
-        self.assertGreater(len(frame_files), 0, "No frames were extracted")
+def test_save_video_frames_writes_jpgs(synthetic_video: Path, tmp_path: Path) -> None:
+    output = tmp_path / "frames"
+    count = save_video_frames(synthetic_video, output)
+    written = sorted(output.glob("*.jpg"))
+    assert count == len(written) > 0
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_save_video_frames_scales(synthetic_video: Path, tmp_path: Path) -> None:
+    output = tmp_path / "frames_small"
+    save_video_frames(synthetic_video, output, scale_factor=0.5)
+    sample = cv2.imread(str(next(output.glob("*.jpg"))))
+    assert sample.shape[:2] == (24, 32)
+
+
+def test_save_video_frames_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        save_video_frames(tmp_path / "missing.mp4", tmp_path / "out")
+
+
+def test_extract_directory_creates_subfolders(synthetic_video: Path, tmp_path: Path) -> None:
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    target = videos_dir / "alpha.mp4"
+    target.write_bytes(synthetic_video.read_bytes())
+
+    counts = extract_directory(videos_dir, tmp_path / "frames")
+    assert "alpha" in counts
+    assert (tmp_path / "frames" / "alpha").is_dir()
+    assert counts["alpha"] > 0
