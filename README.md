@@ -29,33 +29,40 @@ in `setup.json` or interactively when running the pipeline.
 ## Project layout
 
 ```
-CreatingModel/
+CreatingModel/         model definitions and training
     UNetModel.py
     DiffusionModel.py
     TransformerModel.py
     MambaModel.py
     Losses.py
     TrainingModel.py
-FolderOperations/
+FolderOperations/      orchestrators that wrap the lower-level steps
     DataFlow.py
-ImageOperations/
+ImageOperations/       per-image utilities and the torch dataset
+    ImageIO.py
     Dataset.py
     ScaleDownImages.py
     GenerateFrames.py
-VideoOperations/
+VideoOperations/       video <-> frames I/O
     ExtractingFrames.py
     AssembleVideo.py
     EnhanceVideos.py
-utilities/
+utilities/             cross-cutting helpers
     Config.py
     Checkpoints.py
     Devices.py
-Test/
-    pytest suite
+    Prompts.py
+Test/                  pytest suite
 main.py
 setup.json
 requirements.txt
 ```
+
+Each file has a single responsibility and the layers depend downward only:
+`main.py` -> `FolderOperations` -> `ImageOperations` / `VideoOperations`
+-> `CreatingModel` -> `utilities`. Models are pluggable through the
+registry in `CreatingModel/__init__.py`, so adding a new architecture is
+a one-file change plus a registry entry.
 
 ## Installation
 

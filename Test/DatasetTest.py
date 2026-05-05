@@ -3,13 +3,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from ImageOperations.Dataset import (
-    FrameTripletDataset,
-    build_triplets,
-    from_tensor,
-    load_image,
-    to_tensor,
-)
+from ImageOperations.Dataset import FrameTripletDataset, build_triplets
+from ImageOperations.ImageIO import from_tensor, load_image, to_tensor
 
 
 def test_build_triplets_counts(frame_directory: Path) -> None:

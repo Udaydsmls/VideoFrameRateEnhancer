@@ -51,8 +51,8 @@ class DiffusionInterpolator(nn.Module):
         self.down1 = _ResBlock(c, c * 2, time_dim)
         self.down2 = _ResBlock(c * 2, c * 4, time_dim)
         self.mid = _ResBlock(c * 4, c * 4, time_dim)
-        self.up2 = _ResBlock(c * 4 + c * 4, c * 2, time_dim)
-        self.up1 = _ResBlock(c * 2 + c * 2, c, time_dim)
+        self.up2 = _ResBlock(c * 4 + c * 2, c * 2, time_dim)
+        self.up1 = _ResBlock(c * 2 + c, c, time_dim)
         self.out = nn.Sequential(
             nn.GroupNorm(8, c),
             nn.SiLU(),
