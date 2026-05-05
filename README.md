@@ -108,6 +108,8 @@ Place your videos in `<root>/videos`, then run:
 python main.py
 ```
 
+![CLI walkthrough](assets/cli_screenshot.png)
+
 The script walks through the pipeline interactively:
 
 1. Pick the architecture (defaults to whatever is set in `setup.json`).
